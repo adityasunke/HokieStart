@@ -1,0 +1,47 @@
+Algorithm 4: createTask() — Frontend
+function handleCreateTask(title, due_date, description):
+    if title = "" then
+        showError("Task title is required")
+        return
+    if due_date < currentDate() then
+        showError("Due date cannot be in the past")
+        return
+    
+    setLoading(true)
+    response ← POST /api/tasks { student_id, title, due_date, description }
+    
+    if response.success then
+        appendTaskToList(response.task)
+        sortTaskListByDueDate()
+        showConfirmation("Task created!")
+    else
+        showError(response.error)
+    
+    setLoading(false)
+Algorithm 5: markTaskComplete() — Frontend
+function handleMarkComplete(task_id):
+    task ← getTaskFromUIState(task_id)
+    
+    optimisticallyMarkComplete(task_id)     // update UI immediately
+    
+    response ← PATCH /api/tasks/{task_id}/complete { student_id }
+    
+    if response.success then
+        moveTaskToCompletedSection(task_id)
+    else
+        revertOptimisticUpdate(task_id)     // rollback on failure
+        showError(response.error)
+Algorithm 6: completeOnboardingItem() — Frontend
+function handleCompleteOnboardingItem(item_id):
+    markItemComplete(item_id)               // update checkbox in UI
+    
+    response ← PATCH /api/onboarding/{item_id}/complete { student_id }
+    
+    if response.success then
+        updateProgressBar(response.checklist.completion_status)
+        if response.checklist.completion_status = 100 then
+            showCongratulationsModal()
+            redirectToDashboard()
+    else
+        revertItemCompletion(item_id)
+        showError(response.error)
