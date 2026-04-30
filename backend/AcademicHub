@@ -1,0 +1,128 @@
+Algorithm 7: searchResources()
+function searchResources(student_id, keyword, category):
+    if keyword = "" then
+        results ← getAllResources()         // SELECT * FROM resources
+    else
+        results ← queryResources(keyword)
+        // SELECT * FROM resources
+        // WHERE name ILIKE '%keyword%'
+        // OR description ILIKE '%keyword%'
+ 
+    if category ≠ null then
+        results ← filterByCategory(results, category)
+        // AND category = category
+ 
+    bookmarks ← getBookmarksByStudentId(student_id)
+    // SELECT * FROM bookmarks WHERE student_id = student_id
+ 
+    for each resource r in results do
+        r.is_bookmarked ← exists bookmark b in bookmarks
+                          where b.resource_id = r.resource_id
+ 
+    // must return within 1 second — use indexed full-text search
+    return 200, results
+ 
+ 
+Algorithm 8: bookmarkResource()
+function bookmarkResource(student_id, resource_id):
+    existing ← getBookmark(student_id, resource_id)
+    // SELECT * FROM bookmarks
+    // WHERE student_id = student_id AND resource_id = resource_id
+ 
+    if existing ≠ null then
+        deleteBookmark(existing.bookmark_id)    // DELETE FROM bookmarks
+        return 200, { action: "removed" }
+ 
+    resource ← getResource(resource_id)
+    if resource = null then
+        return error(404, "Resource not found")
+ 
+    bookmark ← newBookmark()
+    bookmark.student_id  ← student_id
+    bookmark.resource_id ← resource_id
+    bookmark.saved_at    ← currentTime()
+ 
+    saveBookmark(bookmark)                  // INSERT INTO bookmarks
+    return 201, bookmark
+ 
+ 
+Algorithm 9: manageResource() 
+function manageResource(admin_id, action, resource_data):
+    admin ← getAdmin(admin_id)
+    if admin = null or admin.role ≠ "resource_management" then
+        return error(403, "Unauthorized — admin access required")
+ 
+    if action = "add" then
+        if resource_data.name = "" or resource_data.url = "" then
+            return error(400, "Name and URL are required")
+        if not validateURL(resource_data.url) then
+            return error(400, "Invalid URL")
+        if resourceExists(resource_data.url) then
+            return error(409, "Resource with this URL already exists")
+ 
+        resource ← newResource()
+        resource.name        ← resource_data.name
+        resource.url         ← resource_data.url
+        resource.category    ← resource_data.category
+        resource.description ← resource_data.description
+        resource.created_by  ← admin_id
+        resource.created_at  ← currentTime()
+ 
+        saveResource(resource)              // INSERT INTO resources
+        return 201, resource
+ 
+    else if action = "edit" then
+        resource ← getResource(resource_data.resource_id)
+        if resource = null then
+            return error(404, "Resource not found")
+        if not validateURL(resource_data.url) then
+            return error(400, "Invalid URL")
+ 
+        resource.name        ← resource_data.name
+        resource.url         ← resource_data.url
+        resource.category    ← resource_data.category
+        resource.description ← resource_data.description
+        resource.updated_at  ← currentTime()
+ 
+        updateResource(resource)            // UPDATE resources SET ...
+        return 200, resource
+ 
+    else if action = "delete" then
+        resource ← getResource(resource_data.resource_id)
+        if resource = null then
+            return error(404, "Resource not found")
+ 
+        deleteBookmarksByResource(resource_data.resource_id)
+        // DELETE FROM bookmarks WHERE resource_id = resource_id
+        deleteResource(resource_data.resource_id)
+        // DELETE FROM resources WHERE resource_id = resource_id
+        return 200, { message: "Resource deleted" }
+ 
+ 
+Algorithm 10: setNotificationPreferences()
+function setNotificationPreferences(student_id, preferences):
+    student ← getStudent(student_id)
+    if student = null then
+        return error(404, "Student not found")
+ 
+    if preferences.method not in ["push", "email", "both"] then
+        return error(400, "Invalid notification method")
+ 
+    notification ← getNotificationByStudentId(student_id)
+    // SELECT * FROM notifications WHERE student_id = student_id
+ 
+    notification.deadlines      ← preferences.deadlines
+    notification.announcements  ← preferences.announcements
+    notification.new_resources  ← preferences.new_resources
+    notification.method         ← preferences.method
+    notification.updated_at     ← currentTime()
+ 
+    updateNotification(notification)    // UPDATE notifications SET ...
+ 
+    // update master flag on student record
+    student.notification_enabled ← (preferences.deadlines OR
+                                     preferences.announcements OR
+                                     preferences.new_resources)
+    updateStudent(student)
+ 
+    return 200, notification
