@@ -1,0 +1,84 @@
+Algorithm 7: searchResources()
+function handleSearchResources(keyword, category):
+    if keyword = "" and category = null then
+        displayAllResources()
+        return
+
+    setSearchLoading(true)
+    response ← GET /api/resources?keyword={keyword}&category={category}
+                                  &student_id={student_id}
+
+    if response.success then
+        clearResourceList()
+        for each resource r in response.results do
+            renderResourceCard(r.title, r.description, r.url, r.is_bookmarked)
+        updateResultCount(response.results.length)
+    else
+        showMessage("No results found. Try a different keyword.")
+
+    setSearchLoading(false)
+
+
+Algorithm 8: bookmarkResource()
+function handleBookmarkResource(resource_id, is_currently_bookmarked):
+    toggleBookmarkIcon(resource_id)         // optimistic UI update
+
+    response ← POST /api/bookmarks { student_id, resource_id }
+
+    if response.success then
+        if response.action = "removed" then
+            showToast("Bookmark removed")
+        else
+            showToast("Bookmarked!")
+    else
+        toggleBookmarkIcon(resource_id)     // revert on failure
+        showError(response.error)
+
+
+Algorithm 9: manageResource() 
+function handleManageResource(action, resource_data):
+    if action = "add" then
+        if resource_data.name = "" or resource_data.url = "" then
+            showError("Name and URL are required")
+            return
+        if not isValidURL(resource_data.url) then
+            showError("Please enter a valid URL")
+            return
+        response ← POST /api/admin/resources { resource_data }
+
+    else if action = "edit" then
+        response ← PUT /api/admin/resources/{resource_data.resource_id}
+                       { resource_data }
+
+    else if action = "delete" then
+        confirmed ← showConfirmDialog("Delete this resource?")
+        if not confirmed then return
+        response ← DELETE /api/admin/resources/{resource_data.resource_id}
+
+    if response.success then
+        refreshResourceLibrary()
+        showToast("Resource " + action + "ed successfully")
+    else
+        showError(response.error)
+
+
+Algorithm 10: setNotificationPreferences() 
+function handleSetNotificationPreferences(preferences):
+    // preferences = { deadlines: bool, announcements: bool,
+    //                 new_resources: bool, method: "push"|"email"|"both" }
+
+    if preferences.method not in ["push", "email", "both"] then
+        showError("Invalid notification method selected")
+        return
+
+    setSaveLoading(true)
+    response ← PUT /api/students/{student_id}/notifications { preferences }
+
+    if response.success then
+        updateToggleStates(preferences)
+        showToast("Preferences saved")
+    else
+        showError("Failed to save — please try again")
+        revertToggleStates()
+
+    setSaveLoading(false)
