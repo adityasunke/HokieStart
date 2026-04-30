@@ -1,0 +1,74 @@
+Algorithm 4: createTask() — Backend
+function createTask(student_id, title, due_date, description):
+    if title = "" then
+        return error(400, "Task title is required")
+    if due_date < currentDate() then
+        return error(400, "Due date cannot be in the past")
+    
+    task ← newTask()
+    task.student_id    ← student_id
+    task.title         ← title
+    task.due_date      ← due_date
+    task.description   ← description
+    task.is_complete   ← False
+    task.created_at    ← currentTime()
+    
+    saveTask(task)                         
+    
+    reminder ← newReminder()
+    reminder.task_id         ← task.task_id
+    reminder.scheduled_time  ← due_date - REMINDER_OFFSET   // 24 hrs before
+    reminder.delivery_method ← student.notification_preference
+    
+    saveReminder(reminder)                  // INSERT INTO reminders
+    scheduleNotificationJob(reminder)       // queue push/email job
+    
+    return 201, task
+    
+Algorithm 5: markTaskComplete() — Backend
+function markTaskComplete(student_id, task_id):
+    task ← getTask(task_id)               // SELECT FROM tasks WHERE task_id
+    
+    if task = null then
+        return error(404, "Task not found")
+    if task.student_id ≠ student_id then
+        return error(403, "Unauthorized")
+    if task.is_complete = True then
+        return error(409, "Task already complete")
+    
+    task.is_complete    ← True
+    task.completed_at   ← currentTime()
+    updateTask(task)                        // UPDATE tasks SET
+    
+    cancelReminder(task.task_id)            // DELETE FROM reminders
+    cancelScheduledJob(task.task_id)        // remove from notification queue
+    
+    return 200, task
+Algorithm 6: completeOnboardingItem() — Backend
+function completeOnboardingItem(student_id, item_id):
+    checklist ← getChecklistByStudentId(student_id)
+    item      ← getChecklistItem(item_id)
+    
+    if item = null then
+        return error(404, "Item not found")
+    if item.checklist_id ≠ checklist.checklist_id then
+        return error(403, "Item does not belong to this student")
+    if item.is_completed = True then
+        return error(409, "Item already completed")
+    
+    item.is_completed ← True
+    updateChecklistItem(item)               // UPDATE checklist_items SET
+    
+    completed ← countCompletedItems(checklist.checklist_id)
+    total     ← countAllItems(checklist.checklist_id)
+    
+    checklist.completion_status ← (completed / total) × 100
+    checklist.last_updated      ← currentTime()
+    updateChecklist(checklist)
+    
+    if checklist.completion_status = 100 then
+        student ← getStudent(student_id)
+        student.is_onboarded ← True
+        updateStudent(student)              // UPDATE students SET is_onboarded
+    
+    return 200, checklist
