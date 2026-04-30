@@ -1,0 +1,43 @@
+Algorithm 11: searchLocations() — Backend
+function searchLocations(query, category):
+    if query = "" and category = null then
+        return 200, getAllLocations()       // SELECT * FROM locations
+    
+    results ← queryLocations(query)
+    // SELECT * FROM locations
+    // WHERE name ILIKE '%query%'
+    // OR description ILIKE '%query%'
+    
+    if category ≠ null then
+        results ← filterByCategory(results, category)
+        // WHERE category = category
+    
+    if results is empty then
+        return 200, []                      // empty list, not an error
+    
+    return 200, results
+Algorithm 12: generateRoute() — Backend
+function generateRoute(student_id, origin_id, dest_id, route_type):
+    origin ← getLocation(origin_id)        // SELECT FROM locations WHERE id
+    dest   ← getLocation(dest_id)
+    
+    if origin = null or dest = null then
+        return error(404, "Invalid location")
+    if origin_id = dest_id then
+        return error(400, "Origin and destination cannot be the same")
+    if route_type ∉ ["walking", "driving"] then
+        return error(400, "Invalid route type")
+    
+    route ← computeRoute(origin, dest, route_type)
+    // calls external Maps API (Google Maps / campus routing engine)
+    
+    if route = null then
+        return error(503, "Route could not be calculated")
+    
+    route.student_id      ← student_id
+    route.estimated_time  ← currentTime() + route.duration
+    route.created_at      ← currentTime()
+    
+    saveRoute(route)                        // INSERT INTO routes
+    
+    return 200, route
