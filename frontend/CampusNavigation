@@ -1,0 +1,45 @@
+Algorithm 11: searchLocations() — Frontend
+function handleSearchLocations(query, category):
+    if query = "" and category = null then
+        displayAllLocations()
+        return
+    
+    setSearchLoading(true)
+    response ← GET /api/locations?query={query}&category={category}
+    
+    if response.success then
+        clearMapMarkers()
+        for each location in response.results do
+            renderMarker(location.lat, location.lng, location.name)
+        displayResultsList(response.results)
+    else
+        showMessage("No results found")
+    
+    setSearchLoading(false)
+Algorithm 12: generateRoute() — Frontend
+function handleGenerateRoute(origin_location_id, dest_location_id, route_type):
+    if origin_location_id = null or dest_location_id = null then
+        showError("Please select both an origin and destination")
+        return
+    if origin_location_id = dest_location_id then
+        showError("Origin and destination cannot be the same")
+        return
+    
+    setRouteLoading(true)
+    response ← POST /api/routes {
+                    student_id,
+                    origin_location_id,
+                    dest_location_id,
+                    route_type          // "walking" or "driving"
+                }
+    
+    if response.success then
+        clearExistingRoute()
+        drawRouteOnMap(response.route.polyline)
+        displayRouteInfo(response.route.distance,
+                         response.route.duration,
+                         response.route.estimated_time)
+    else
+        showError(response.error)
+    
+    setRouteLoading(false)
